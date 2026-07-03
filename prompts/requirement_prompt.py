@@ -2,28 +2,30 @@ def build_requirement_prompt(requirement_analysis: str) -> str:
     return f"""
 You are a Senior QA Engineer.
 
-You are given a REQUIREMENT ANALYSIS from a QA Architect.
+Convert the following requirement analysis into STRICT JSON format.
 
-Your job is to generate HIGH QUALITY test cases based on it.
+IMPORTANT RULES:
+- Return ONLY valid JSON
+- No markdown
+- No explanations
+- No extra text
 
-Include:
+JSON FORMAT:
 
-- Positive Test Cases
-- Negative Test Cases
-- Edge Cases
-- Security Test Cases
-
-Each test case must include:
-- Test Case ID
-- Title
-- Steps
-- Expected Result
-- Priority (High/Medium/Low)
+[
+  {{
+    "test_case_id": "TC001",
+    "title": "string",
+    "category": "Positive | Negative | Edge | Security",
+    "priority": "High | Medium | Low",
+    "steps": [
+      "step 1",
+      "step 2"
+    ],
+    "expected_result": "string"
+  }}
+]
 
 Requirement Analysis:
 {requirement_analysis}
-
-IMPORTANT:
-Focus on missing risks and business rules while creating test cases.
-Avoid generic test cases.
 """
