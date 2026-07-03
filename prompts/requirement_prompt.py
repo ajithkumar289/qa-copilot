@@ -1,24 +1,29 @@
-def build_requirement_prompt(requirement: str):
-
+def build_requirement_prompt(requirement_analysis: str) -> str:
     return f"""
 You are a Senior QA Engineer.
 
-Generate:
+You are given a REQUIREMENT ANALYSIS from a QA Architect.
 
-1. Positive Test Cases
-2. Negative Test Cases
-3. Edge Cases
-4. Security Test Cases
+Your job is to generate HIGH QUALITY test cases based on it.
 
-Requirement:
-{requirement}
+Include:
 
-For every test case include:
+- Positive Test Cases
+- Negative Test Cases
+- Edge Cases
+- Security Test Cases
 
+Each test case must include:
 - Test Case ID
 - Title
 - Steps
 - Expected Result
+- Priority (High/Medium/Low)
 
-Return the answer in Markdown.
+Requirement Analysis:
+{requirement_analysis}
+
+IMPORTANT:
+Focus on missing risks and business rules while creating test cases.
+Avoid generic test cases.
 """

@@ -2,6 +2,7 @@ import streamlit as st
 
 from services.requirement_service import RequirementService
 from services.requirement_analyzer import RequirementAnalyzerService
+from services.smart_testcase_service import SmartTestCaseService
 
 st.set_page_config(page_title="QA Copilot", page_icon="🧪")
 
@@ -17,7 +18,7 @@ col1, col2 = st.columns(2)
 
 test_service = RequirementService()
 analyzer_service = RequirementAnalyzerService()
-
+smart_service = SmartTestCaseService()
 # -------------------------
 # BUTTON 1: ANALYZE
 # -------------------------
@@ -41,7 +42,7 @@ with col2:
         if not requirement.strip():
             st.warning("Please enter a requirement.")
         else:
-            with st.spinner("Generating test cases..."):
-                result = test_service.generate_test_cases(requirement)
-                st.subheader("🧪 Test Cases")
+            with st.spinner("Generating smart test cases..."):
+                result = smart_service.generate(requirement)
+                st.subheader("🧪 Smart Test Cases")
                 st.markdown(result)
