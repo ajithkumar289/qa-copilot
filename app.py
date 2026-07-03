@@ -1,13 +1,11 @@
 import streamlit as st
 
-from config import APP_TITLE
 from services.requirement_service import RequirementService
+from services.requirement_analyzer import RequirementAnalyzerService
 
 st.set_page_config(page_title="QA Copilot", page_icon="🧪")
 
-st.title(APP_TITLE)
-
-st.write("Generate QA Test Cases using Ollama + Qwen")
+st.title("🧪 QA Copilot")
 
 requirement = st.text_area(
     "Enter Requirement / User Story",
@@ -15,24 +13,35 @@ requirement = st.text_area(
     placeholder="Example: User should be able to login using email and password."
 )
 
-service = RequirementService()
+col1, col2 = st.columns(2)
 
-if st.button("Generate Test Cases"):
+test_service = RequirementService()
+analyzer_service = RequirementAnalyzerService()
 
-    if not requirement.strip():
+# -------------------------
+# BUTTON 1: ANALYZE
+# -------------------------
+with col1:
+    if st.button("🔍 Analyze Requirement"):
 
-        st.warning("Please enter a requirement.")
-
-    else:
-
-        try:
-
-            with st.spinner("Generating test cases..."):
-
-                result = service.generate_test_cases(requirement)
-
+        if not requirement.strip():
+            st.warning("Please enter a requirement.")
+        else:
+            with st.spinner("Analyzing requirement..."):
+                result = analyzer_service.analyze(requirement)
+                st.subheader("📊 Requirement Analysis")
                 st.markdown(result)
 
-        except Exception as e:
+# -------------------------
+# BUTTON 2: GENERATE TEST CASES
+# -------------------------
+with col2:
+    if st.button("🧪 Generate Test Cases"):
 
-            st.error(e)
+        if not requirement.strip():
+            st.warning("Please enter a requirement.")
+        else:
+            with st.spinner("Generating test cases..."):
+                result = test_service.generate_test_cases(requirement)
+                st.subheader("🧪 Test Cases")
+                st.markdown(result)
