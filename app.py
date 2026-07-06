@@ -4,32 +4,80 @@ import pandas as pd
 from services.requirement_service import RequirementService
 from services.requirement_analyzer import RequirementAnalyzerService
 from services.smart_testcase_service import SmartTestCaseService
+from services.document_service import DocumentService
 from utils.excel_exporter import convert_to_excel
 
 st.set_page_config(page_title="QA Copilot", page_icon="🧪")
 
 st.title("🧪 QA Copilot")
 
-requirement = st.text_area(
-    "Enter Requirement / User Story",
-    height=200,
-    placeholder="Example: User should be able to login using email and password."
-)
-
-col1, col2 = st.columns(2)
-
+# -------------------------
+# Initialize Services
+# -------------------------
 test_service = RequirementService()
 analyzer_service = RequirementAnalyzerService()
 smart_service = SmartTestCaseService()
+document_service = DocumentService()
 
 # -------------------------
-# BUTTON 1: ANALYZE
+# Upload PDF
+# -------------------------
+#uploaded_file = st.file_uploader(
+#    "📄 Upload Requirement Document",
+ #   type=["pdf"]
+#)
+
+uploaded_file = st.file_uploader(
+    "Upload BRD / Requirement Document",
+    type=["pdf", "docx", "xlsx"]
+)
+
+# -------------------------
+# Read PDF
+# -------------------------
+#requirement = ""
+#
+#if uploaded_file is not None:
+#    with st.spinner("Reading PDF..."):
+#        requirement = document_service.extract_pdf_text(uploaded_file)
+
+
+# -------------------------
+# Read Document
+# -------------------------
+requirement = ""
+
+if uploaded_file is not None:
+    with st.spinner("Reading document..."):
+        try:
+            requirement = document_service.extract_text(uploaded_file)
+        except Exception as e:
+            st.error(f"Failed to read document: {e}")
+
+# -------------------------
+# Requirement Input
+# -------------------------
+requirement = st.text_area(
+    "Requirement / User Story",
+    value=requirement,
+    height=300,
+    placeholder="Example: User should be able to login using email and password."
+)
+
+# -------------------------
+# Buttons
+# -------------------------
+col1, col2 = st.columns(2)
+
+# -------------------------
+# Analyze Requirement
 # -------------------------
 with col1:
     if st.button("🔍 Analyze Requirement"):
 
         if not requirement.strip():
             st.warning("Please enter a requirement.")
+
         else:
             with st.spinner("Analyzing requirement..."):
                 result = analyzer_service.analyze(requirement)
@@ -38,15 +86,16 @@ with col1:
             st.markdown(result)
 
 # -------------------------
-# BUTTON 2: GENERATE TEST CASES
+# Generate Test Cases
 # -------------------------
 with col2:
     if st.button("🧪 Generate Test Cases"):
 
         if not requirement.strip():
             st.warning("Please enter a requirement.")
+
         else:
-            with st.spinner("Generating smart test cases..."):
+            with st.spinner("Generating Smart Test Cases..."):
                 result = smart_service.generate(requirement)
 
             st.subheader("🧪 Test Cases")
@@ -64,11 +113,15 @@ with col2:
                     "expected_result"
                 ]
 
-                df = df[[col for col in expected_columns if col in df.columns]]
+                available_columns = [
+                    col for col in expected_columns if col in df.columns
+                ]
+
+                df = df[available_columns]
 
                 st.dataframe(df, use_container_width=True)
 
-                # Download Excel
+                # Excel Download
                 excel_data = convert_to_excel(result)
 
                 st.download_button(
