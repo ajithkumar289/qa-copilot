@@ -18,3 +18,9 @@ __pycache__/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Vector Database
+data/chroma_db/
+
+# AI model cache (optional)
+models/

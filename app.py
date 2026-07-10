@@ -5,6 +5,7 @@ from services.requirement_service import RequirementService
 from services.requirement_analyzer import RequirementAnalyzerService
 from services.smart_testcase_service import SmartTestCaseService
 from services.document_service import DocumentService
+from services.rag_service import RAGService
 from utils.excel_exporter import convert_to_excel
 
 st.set_page_config(page_title="QA Copilot", page_icon="🧪")
@@ -18,41 +19,64 @@ test_service = RequirementService()
 analyzer_service = RequirementAnalyzerService()
 smart_service = SmartTestCaseService()
 document_service = DocumentService()
+rag_service = RAGService()
 
 # -------------------------
-# Upload PDF
+# Upload BRD / Requirement Document
 # -------------------------
-#uploaded_file = st.file_uploader(
-#    "📄 Upload Requirement Document",
- #   type=["pdf"]
-#)
-
 uploaded_file = st.file_uploader(
-    "Upload BRD / Requirement Document",
+    "📄 Upload BRD / Requirement Document",
     type=["pdf", "docx", "xlsx"]
 )
 
 # -------------------------
-# Read PDF
-# -------------------------
-#requirement = ""
-#
-#if uploaded_file is not None:
-#    with st.spinner("Reading PDF..."):
-#        requirement = document_service.extract_pdf_text(uploaded_file)
-
-
-# -------------------------
-# Read Document
+# Read Document + Chunking + Embeddings
 # -------------------------
 requirement = ""
+chunks = []
+embeddings = []
 
 if uploaded_file is not None:
-    with st.spinner("Reading document..."):
+    with st.spinner("📖 Reading document..."):
         try:
             requirement = document_service.extract_text(uploaded_file)
+
+            if requirement.strip():
+
+                # Chunk the document
+                chunks = rag_service.chunk_document(requirement)
+
+                st.success(
+                    f"✅ Document successfully split into **{len(chunks)}** chunks."
+                )
+
+                # Generate embeddings
+                with st.spinner("Generating embeddings..."):
+                    embeddings = rag_service.create_embeddings(chunks)
+
+                st.success(
+                    f"✅ Successfully generated **{len(embeddings)}** embeddings."
+                )
+
+                # Display embedding dimension
+                if len(embeddings) > 0:
+                    st.info(
+                        f"📐 Embedding Dimension: **{len(embeddings[0])}**"
+                    )
+
+                # Display chunks
+                with st.expander("📄 View Document Chunks"):
+
+                    for i, chunk in enumerate(chunks, start=1):
+                        st.markdown(f"### Chunk {i}")
+                        st.write(chunk)
+                        st.divider()
+
+            else:
+                st.warning("The uploaded document appears to be empty.")
+
         except Exception as e:
-            st.error(f"Failed to read document: {e}")
+            st.error(f"❌ Failed to read document: {e}")
 
 # -------------------------
 # Requirement Input
@@ -73,6 +97,7 @@ col1, col2 = st.columns(2)
 # Analyze Requirement
 # -------------------------
 with col1:
+
     if st.button("🔍 Analyze Requirement"):
 
         if not requirement.strip():
@@ -89,6 +114,7 @@ with col1:
 # Generate Test Cases
 # -------------------------
 with col2:
+
     if st.button("🧪 Generate Test Cases"):
 
         if not requirement.strip():
@@ -119,9 +145,14 @@ with col2:
 
                 df = df[available_columns]
 
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(
+                    df,
+                    use_container_width=True
+                )
 
+                # -------------------------
                 # Excel Download
+                # -------------------------
                 excel_data = convert_to_excel(result)
 
                 st.download_button(
@@ -132,4 +163,6 @@ with col2:
                 )
 
             else:
-                st.error("⚠️ Failed to generate structured test cases. Please try again.")
+                st.error(
+                    "⚠️ Failed to generate structured test cases. Please try again."
+                )
