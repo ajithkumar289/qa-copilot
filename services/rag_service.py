@@ -125,3 +125,31 @@ class RAGService:
         )
 
         return len(chunks)
+    def search_chunks(self, question, top_k=5):
+        """
+        Retrieve most relevant chunks from ChromaDB.
+        """
+
+        if not question or not question.strip():
+            return []
+
+        # Convert question into embedding
+        question_embedding = self.embedding_model.encode(
+            question,
+            convert_to_numpy=True
+        )
+
+        # Search ChromaDB
+        results = self.collection.query(
+            query_embeddings=[
+                question_embedding.tolist()
+            ],
+            n_results=top_k
+        )
+
+        documents = results.get("documents", [])
+
+        if documents:
+            return documents[0]
+
+        return []
