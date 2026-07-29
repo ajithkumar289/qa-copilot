@@ -53,6 +53,8 @@ if uploaded_file is not None:
                 # Generate embeddings
                 with st.spinner("Generating embeddings..."):
                     embeddings = rag_service.create_embeddings(chunks)
+                    stored_count = rag_service.store_embeddings(chunks,embeddings)
+                st.success( f"✅ Stored {stored_count} chunks in ChromaDB.")	  
 
                 st.success(
                     f"✅ Successfully generated **{len(embeddings)}** embeddings."

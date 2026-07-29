@@ -1,32 +1,65 @@
+import streamlit as st
+import chromadb
+import uuid
+
 from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+
+@st.cache_resource
+def load_embedding_model():
+    """
+    Load embedding model only once.
+    """
+    return SentenceTransformer("all-MiniLM-L6-v2")
+
+
+@st.cache_resource
+def load_chroma_collection():
+    """
+    Initialize persistent ChromaDB collection.
+    """
+
+    client = chromadb.PersistentClient(
+        path="data/chroma_db"
+    )
+
+    collection = client.get_or_create_collection(
+        name="qa_copilot_brd"
+    )
+
+    return collection
 
 
 class RAGService:
     """
     Handles all Retrieval-Augmented Generation (RAG) operations.
 
-    Current Phase:
+    Completed:
     - Document Chunking
     - Embedding Generation
-
-    Upcoming Phases:
     - ChromaDB Storage
+
+    Current Phase:
+    - Unique Document Storage
+
+    Upcoming:
     - Semantic Search
     - Question Answering
     """
 
     def __init__(self):
-        """
-        Load embedding model only once.
-        """
-        self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+        self.embedding_model = load_embedding_model()
+
+        self.collection = load_chroma_collection()
 
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=800,
             chunk_overlap=150,
             length_function=len
         )
+
 
     def chunk_document(self, text):
         """
@@ -37,6 +70,7 @@ class RAGService:
             return []
 
         return self.text_splitter.split_text(text)
+
 
     def create_embeddings(self, chunks):
         """
@@ -52,3 +86,42 @@ class RAGService:
         )
 
         return embeddings
+
+
+    def generate_document_id(self):
+        """
+        Generate unique ID for every uploaded document.
+        """
+
+        return str(uuid.uuid4())[:8]
+
+
+    def store_embeddings(self, chunks, embeddings):
+        """
+        Store document chunks and embeddings into ChromaDB.
+        """
+
+        if not chunks or len(embeddings) == 0:
+            return 0
+
+        document_id = self.generate_document_id()
+
+        ids = [
+            f"{document_id}_chunk_{i}"
+            for i in range(len(chunks))
+        ]
+
+        self.collection.add(
+            ids=ids,
+            documents=chunks,
+            embeddings=embeddings.tolist(),
+            metadatas=[
+                {
+                    "document_id": document_id,
+                    "chunk_number": i
+                }
+                for i in range(len(chunks))
+            ]
+        )
+
+        return len(chunks)
