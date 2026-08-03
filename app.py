@@ -50,6 +50,13 @@ if "document_stored" not in st.session_state:
 
 
 # -------------------------
+# Chat History
+# -------------------------
+
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# -------------------------
 # Upload BRD / Requirement Document
 # -------------------------
 
@@ -89,7 +96,8 @@ if uploaded_file is not None:
         st.session_state.requirement = ""
         st.session_state.chunks = []
         st.session_state.embeddings = []
-
+        # Clear previous chat
+        st.session_state.chat_history = []
 
         with st.spinner("📖 Reading document..."):
 
@@ -238,12 +246,12 @@ if st.session_state.chunks:
 st.subheader("💬 Ask your BRD")
 
 
-question = st.text_input(
+question = st.chat_input(
     "Enter your question"
 )
 
 
-if st.button("🔍 Search BRD"):
+if question:
 
     if not uploaded_file:
 
@@ -283,29 +291,47 @@ if st.button("🔍 Search BRD"):
                   question=question
                     )
 
-             st.subheader("🤖 AI Answer")
+             # Save conversation
+             st.session_state.chat_history.append(
+                    {
+                         "question": question,
+                         "answer": answer
+                    }     
+                )
+             st.subheader("💬 Conversation")
 
-             st.markdown(answer)
+             for chat in st.session_state.chat_history:
 
-             with st.expander("📄 Retrieved Context"):
+                 with st.chat_message("user"):
+                     st.write(chat["question"])
 
-                for i, chunk in enumerate(
-                    relevant_chunks,
-                    start=1
-                ):
+                 with st.chat_message("assistant"):
+                     st.write(chat["answer"])
 
-                    st.markdown(f"### Chunk {i}")
+                 #st.divider()
 
-                    st.write(chunk)
+                     with st.expander("📄 Retrieved Context"):
 
-                    st.divider()
+                        for i, chunk in enumerate(relevant_chunks,start=1):
 
+                           st.markdown(f"### Chunk {i}")
+
+                           st.write(chunk)
+
+                           st.divider()
+                 st.divider()
+              
 
         else:
 
             st.warning(
                 "No relevant information found."
             )
+        if st.button("🗑 Clear Conversation"):
+
+           st.session_state.chat_history = []
+  
+           st.rerun()
 
 
 # -------------------------
