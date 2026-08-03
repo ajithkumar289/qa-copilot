@@ -153,3 +153,12 @@ class RAGService:
             return documents[0]
 
         return []
+    def build_context(self, chunks):
+        """
+        Combine retrieved chunks into a single context.
+        """
+
+        if not chunks:
+           return ""
+
+        return "\n\n".join(chunks)

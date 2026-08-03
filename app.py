@@ -271,25 +271,34 @@ if st.button("🔍 Search BRD"):
                 )
             )
 
-
+        
         if relevant_chunks:
 
-            st.success(
-                f"Found {len(relevant_chunks)} "
-                f"relevant sections."
-            )
+             context = rag_service.build_context(relevant_chunks)    
 
+             with st.spinner("🤖 Generating AI answer..."):
 
-            for i, chunk in enumerate(
-                relevant_chunks,
-                start=1
-            ):
+                answer = test_service.answer_from_context(
+                  context=context,
+                  question=question
+                    )
 
-                st.markdown(
-                    f"### Relevant Chunk {i}"
-                )
+             st.subheader("🤖 AI Answer")
 
-                st.write(chunk)
+             st.markdown(answer)
+
+             with st.expander("📄 Retrieved Context"):
+
+                for i, chunk in enumerate(
+                    relevant_chunks,
+                    start=1
+                ):
+
+                    st.markdown(f"### Chunk {i}")
+
+                    st.write(chunk)
+
+                    st.divider()
 
 
         else:
