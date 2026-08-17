@@ -40,6 +40,7 @@ class RAGService:
     - Document-aware ChromaDB Storage
     - Duplicate Document Protection
     - Document-specific Semantic Search
+    - Retrieval Relevance Filtering
     - Context Construction
     """
 
@@ -165,18 +166,22 @@ class RAGService:
         return len(chunks)
 
     # --------------------------------------------------
-    # Semantic Search
+    # Semantic Search + Relevance Filtering
     # --------------------------------------------------
 
     def search_chunks(
         self,
         question,
         document_hash,
-        top_k=5
+        top_k=5,
+        min_similarity=0.35
     ):
         """
-        Retrieve relevant chunks only from
-        the currently uploaded document.
+        Retrieve relevant chunks only from the
+        currently uploaded document.
+
+        Chunks below the minimum cosine similarity
+        threshold are ignored.
         """
 
         if not question or not question.strip():
@@ -199,15 +204,46 @@ class RAGService:
             n_results=top_k,
             where={
                 "document_hash": document_hash
-            }
+            },
+            include=[
+                "documents",
+                "embeddings"
+            ]
         )
 
         documents = results.get("documents", [])
+        embeddings = results.get("embeddings", [])
 
-        if documents:
-            return documents[0]
+        if not documents or not embeddings:
+            return []
 
-        return []
+        retrieved_documents = documents[0]
+        retrieved_embeddings = embeddings[0]
+
+        relevant_chunks = []
+
+        # Calculate cosine similarity
+        for document, embedding in zip(
+            retrieved_documents,
+            retrieved_embeddings
+        ):
+
+            similarity = (
+                question_embedding @ embedding
+            ) / (
+                (
+                    question_embedding @ question_embedding
+                ) ** 0.5
+                *
+                (
+                    embedding @ embedding
+                ) ** 0.5
+            )
+
+            if similarity >= min_similarity:
+                relevant_chunks.append(document)
+
+        return relevant_chunks
 
     # --------------------------------------------------
     # Build Context
