@@ -41,6 +41,7 @@ class RAGService:
     - Duplicate Document Protection
     - Document-specific Semantic Search
     - Retrieval Relevance Filtering
+    - Source Metadata Tracking
     - Context Construction
     """
 
@@ -174,7 +175,8 @@ class RAGService:
         question,
         document_hash,
         top_k=5,
-        min_similarity=0.35
+        min_similarity=0.35,
+        return_metadata=False
     ):
         """
         Retrieve relevant chunks only from the
@@ -182,6 +184,9 @@ class RAGService:
 
         Chunks below the minimum cosine similarity
         threshold are ignored.
+
+        When return_metadata=True, each result includes
+        source information and similarity score.
         """
 
         if not question or not question.strip():
@@ -190,13 +195,11 @@ class RAGService:
         if not document_hash:
             return []
 
-        # Convert question into embedding
         question_embedding = self.embedding_model.encode(
             question,
             convert_to_numpy=True
         )
 
-        # Search only inside current BRD
         results = self.collection.query(
             query_embeddings=[
                 question_embedding.tolist()
@@ -207,12 +210,14 @@ class RAGService:
             },
             include=[
                 "documents",
-                "embeddings"
+                "embeddings",
+                "metadatas"
             ]
         )
 
         documents = results.get("documents", [])
         embeddings = results.get("embeddings", [])
+        metadatas = results.get("metadatas", [])
 
         if not documents or not embeddings:
             return []
@@ -220,17 +225,21 @@ class RAGService:
         retrieved_documents = documents[0]
         retrieved_embeddings = embeddings[0]
 
+        retrieved_metadatas = (
+            metadatas[0]
+            if metadatas
+            else [{} for _ in retrieved_documents]
+        )
+
         relevant_chunks = []
 
-        # Calculate cosine similarity
-        for document, embedding in zip(
+        for document, embedding, metadata in zip(
             retrieved_documents,
-            retrieved_embeddings
+            retrieved_embeddings,
+            retrieved_metadatas
         ):
 
-            similarity = (
-                question_embedding @ embedding
-            ) / (
+            denominator = (
                 (
                     question_embedding @ question_embedding
                 ) ** 0.5
@@ -240,8 +249,37 @@ class RAGService:
                 ) ** 0.5
             )
 
+            similarity = (
+                (
+                    question_embedding @ embedding
+                ) / denominator
+                if denominator != 0
+                else 0.0
+            )
+
             if similarity >= min_similarity:
-                relevant_chunks.append(document)
+
+                if return_metadata:
+                    relevant_chunks.append(
+                        {
+                            "text": document,
+                            "document_name": metadata.get(
+                                "document_name",
+                                "Uploaded BRD"
+                            ),
+                            "document_hash": metadata.get(
+                                "document_hash",
+                                document_hash
+                            ),
+                            "chunk_number": metadata.get(
+                                "chunk_number",
+                                0
+                            ),
+                            "similarity": float(similarity)
+                        }
+                    )
+                else:
+                    relevant_chunks.append(document)
 
         return relevant_chunks
 
@@ -252,9 +290,22 @@ class RAGService:
     def build_context(self, chunks):
         """
         Combine retrieved chunks into a single context.
+        Supports metadata-rich retrieval results.
         """
 
         if not chunks:
             return ""
 
-        return "\n\n".join(chunks)
+        context_parts = []
+
+        for chunk in chunks:
+            if isinstance(chunk, dict):
+                context_parts.append(
+                    chunk.get("text", "")
+                )
+            else:
+                context_parts.append(chunk)
+
+        return "\n\n".join(
+            part for part in context_parts if part
+        )

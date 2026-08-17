@@ -283,7 +283,8 @@ if question:
             relevant_chunks = (
                 rag_service.search_chunks(
                     question,
-                    document_hash=st.session_state.document_hash
+                    document_hash=st.session_state.document_hash,
+                    return_metadata=True
                 )
             )
 
@@ -320,11 +321,39 @@ if question:
 
                      with st.expander("📄 Retrieved Context"):
 
-                        for i, chunk in enumerate(relevant_chunks,start=1):
+                        for i, chunk in enumerate(
+                            relevant_chunks,
+                            start=1
+                        ):
 
-                           st.markdown(f"### Chunk {i}")
+                           st.markdown(
+                               f"### Chunk {i}"
+                           )
 
-                           st.write(chunk)
+                           if isinstance(chunk, dict):
+
+                               st.caption(
+                                   f"📄 Source: "
+                                   f"{chunk.get('document_name', 'Uploaded BRD')}"
+                               )
+
+                               st.caption(
+                                   f"🔢 Chunk Number: "
+                                   f"{chunk.get('chunk_number', i)+1}"
+                               )
+
+                               st.caption(
+                                   f"🎯 Similarity: "
+                                   f"{chunk.get('similarity', 0.0):.3f}"
+                               )
+
+                               st.write(
+                                   chunk.get("text", "")
+                               )
+
+                           else:
+
+                               st.write(chunk)
 
                            st.divider()
                  st.divider()
