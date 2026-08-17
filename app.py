@@ -176,18 +176,25 @@ if uploaded_file is not None:
                         stored_count = (
                             rag_service.store_embeddings(
                                 chunks,
-                                embeddings
+                                embeddings,
+                                document_hash=current_document_hash,
+                                document_name=uploaded_file.name
                             )
                         )
+                        if stored_count > 0:
+                            st.session_state.document_stored = True
 
-                    st.session_state.document_stored = True
+                            st.success(
+                                f"✅ Stored **{stored_count}** chunks in ChromaDB."
+                            )
 
-                    st.success(
-                        f"✅ Stored **{stored_count}** "
-                        f"chunks in ChromaDB."
-                    )
+                        else:
+                            st.session_state.document_stored = True
 
-
+                            st.info(
+                                "ℹ️ This BRD already exists in ChromaDB. "
+                                "Duplicate storage was skipped."
+                            )
                 else:
 
                     st.warning(
@@ -275,7 +282,8 @@ if question:
 
             relevant_chunks = (
                 rag_service.search_chunks(
-                    question
+                    question,
+                    document_hash=st.session_state.document_hash
                 )
             )
 

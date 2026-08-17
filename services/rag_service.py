@@ -1,6 +1,5 @@
 import streamlit as st
 import chromadb
-import uuid
 
 from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -33,19 +32,15 @@ def load_chroma_collection():
 
 class RAGService:
     """
-    Handles all Retrieval-Augmented Generation (RAG) operations.
+    Handles Retrieval-Augmented Generation (RAG).
 
-    Completed:
+    Features:
     - Document Chunking
     - Embedding Generation
-    - ChromaDB Storage
-
-    Current Phase:
-    - Unique Document Storage
-
-    Upcoming:
-    - Semantic Search
-    - Question Answering
+    - Document-aware ChromaDB Storage
+    - Duplicate Document Protection
+    - Document-specific Semantic Search
+    - Context Construction
     """
 
     def __init__(self):
@@ -60,6 +55,9 @@ class RAGService:
             length_function=len
         )
 
+    # --------------------------------------------------
+    # Chunking
+    # --------------------------------------------------
 
     def chunk_document(self, text):
         """
@@ -71,6 +69,9 @@ class RAGService:
 
         return self.text_splitter.split_text(text)
 
+    # --------------------------------------------------
+    # Embeddings
+    # --------------------------------------------------
 
     def create_embeddings(self, chunks):
         """
@@ -87,27 +88,70 @@ class RAGService:
 
         return embeddings
 
+    # --------------------------------------------------
+    # Check Existing Document
+    # --------------------------------------------------
 
-    def generate_document_id(self):
+    def document_exists(self, document_hash):
         """
-        Generate unique ID for every uploaded document.
+        Check whether a document already exists in ChromaDB.
         """
 
-        return str(uuid.uuid4())[:8]
+        if not document_hash:
+            return False
 
+        results = self.collection.get(
+            where={
+                "document_hash": document_hash
+            },
+            limit=1
+        )
 
-    def store_embeddings(self, chunks, embeddings):
+        return bool(results.get("ids"))
+
+    # --------------------------------------------------
+    # Store Embeddings
+    # --------------------------------------------------
+
+    def store_embeddings(
+        self,
+        chunks,
+        embeddings,
+        document_hash,
+        document_name=None
+    ):
         """
-        Store document chunks and embeddings into ChromaDB.
+        Store document chunks and embeddings in ChromaDB.
+
+        Uses document hash to prevent duplicate storage.
         """
 
         if not chunks or len(embeddings) == 0:
             return 0
 
-        document_id = self.generate_document_id()
+        if not document_hash:
+            raise ValueError(
+                "Document hash is required for storing embeddings."
+            )
+
+        # Prevent duplicate document storage
+        if self.document_exists(document_hash):
+            return 0
+
+        document_id = document_hash[:16]
 
         ids = [
             f"{document_id}_chunk_{i}"
+            for i in range(len(chunks))
+        ]
+
+        metadatas = [
+            {
+                "document_id": document_id,
+                "document_hash": document_hash,
+                "document_name": document_name or "Uploaded BRD",
+                "chunk_number": i
+            }
             for i in range(len(chunks))
         ]
 
@@ -115,22 +159,30 @@ class RAGService:
             ids=ids,
             documents=chunks,
             embeddings=embeddings.tolist(),
-            metadatas=[
-                {
-                    "document_id": document_id,
-                    "chunk_number": i
-                }
-                for i in range(len(chunks))
-            ]
+            metadatas=metadatas
         )
 
         return len(chunks)
-    def search_chunks(self, question, top_k=5):
+
+    # --------------------------------------------------
+    # Semantic Search
+    # --------------------------------------------------
+
+    def search_chunks(
+        self,
+        question,
+        document_hash,
+        top_k=5
+    ):
         """
-        Retrieve most relevant chunks from ChromaDB.
+        Retrieve relevant chunks only from
+        the currently uploaded document.
         """
 
         if not question or not question.strip():
+            return []
+
+        if not document_hash:
             return []
 
         # Convert question into embedding
@@ -139,12 +191,15 @@ class RAGService:
             convert_to_numpy=True
         )
 
-        # Search ChromaDB
+        # Search only inside current BRD
         results = self.collection.query(
             query_embeddings=[
                 question_embedding.tolist()
             ],
-            n_results=top_k
+            n_results=top_k,
+            where={
+                "document_hash": document_hash
+            }
         )
 
         documents = results.get("documents", [])
@@ -153,12 +208,17 @@ class RAGService:
             return documents[0]
 
         return []
+
+    # --------------------------------------------------
+    # Build Context
+    # --------------------------------------------------
+
     def build_context(self, chunks):
         """
         Combine retrieved chunks into a single context.
         """
 
         if not chunks:
-           return ""
+            return ""
 
         return "\n\n".join(chunks)
